@@ -1,0 +1,14 @@
+all:
+  hosts:
+    localhost:
+      ansible_connection: local
+    remotehosts:
+      hosts:
+        remote_host_1:
+          ansible_host: remote.host.1.ip
+          ansible_user: your_username
+          ansible_password: your_password
+        remote_host_2:
+          ansible_host: remote.host.2.ip
+          ansible_user: your_username
+          ansible_password: your_password
