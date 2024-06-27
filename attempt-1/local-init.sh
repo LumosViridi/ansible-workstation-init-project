@@ -25,8 +25,4 @@ brew install python@$PYTHON_VERSION
 echo "Installing Ansible..."
 brew install ansible python-packaging
 
-# # Install Ansible Galaxy Modules
-echo "Installing Ansible Galaxy Modules..."
-ansible-galaxy install -r ./requirements.yaml
-
 echo "Prerequisites setup complete. You can now run the Ansible playbook."

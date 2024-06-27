@@ -1,0 +1,97 @@
+---
+- name: Set up a new remote Mac for Python developer - part 1
+  hosts: remotehosts
+  tasks:
+    - name: Ensuring Homebrew Is Installed
+      stat:
+          path: /home/linuxbrew/.linuxbrew/bin
+      register: homebrew_check
+
+    - name: Install Homebrew
+      shell: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      args:
+        executable: /bin/bash
+      when:
+        - not homebrew_check.stat.exists
+
+    - name: Ensure brew is in user path
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+        line: 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"'
+
+    - name: Refresh shell
+      shell: source ~/.bashrc
+      args:
+        executable: /bin/bash
+
+- name: Install recommended build-essential as root
+  hosts: remotehosts
+  become: yes
+  tasks:
+    - name: Install build-essential
+      ansible.builtin.apt:
+        name: build-essential
+        state: present
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Set up a new remote Mac for Python developer - part 2
+  hosts: remotehosts
+  tasks:
+    - name: Install gcc using brew
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install gcc"
+
+    - name: Install Python 3.8
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install python@3.8"
+
+    - name: Install Python Packaging
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install python-packaging"
+
+    - name: Install Ansible
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install ansible"
+      when: ansible_facts.packages.ansible is not defined
+
+    - name: Install Common Developer Tools
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install git wget tree htop tmux"
+
+- name: Set up a new Mac local or remote for Python developer
+  hosts: all
+  tasks:
+    - name: Install Docker Desktop
+      command: /bin/bash -c "/home/linuxbrew/.linuxbrew/bin/brew install --cask docker"
+      args:
+        creates: /Applications/Docker.app
+      when: ansible_distribution == 'MacOS'
+
+    # Python 3.8 path for Ubuntu
+    - name: Ensure Python3.8 is in user's PATH
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export PATH="/home/linuxbrew/.linuxbrew/bin/python3.8:$PATH"'
+        line: export PATH="/home/linuxbrew/.linuxbrew/bin/python3.8:$PATH"
+
+    - name: Ensure Python3.8 alias exists
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^alias python=/home/linuxbrew/.linuxbrew/bin/python3.8'
+        line: alias python=/home/linuxbrew/.linuxbrew/bin/python3.8
+
+    - name: Ensure Pip3.8 alias exists
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^alias pip=/home/linuxbrew/.linuxbrew/bin/pip3.8'
+        line: alias pip=/home/linuxbrew/.linuxbrew/bin/pip3.8
+
+##################################################################################################
+# Everything above this works #
+    - name: Install Python developer packages
+      pip:
+        name:
+          - black
+          - flake8
+          - pylint
+          - sphinx
+          - pytest
+          - virtualenv
+        state: latest
+        executable: /home/linuxbrew/.linuxbrew/bin/pip3.8

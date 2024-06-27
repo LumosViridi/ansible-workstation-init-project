@@ -1,0 +1,85 @@
+---
+- name: Set up a new remote Mac for Python developer - part 1
+  hosts: remotehosts
+  vars:
+    homebrew_prefix: "{{ (ansible_machine == 'arm64') | ternary('/opt/homebrew', '/usr/local') }}"
+    homebrew_install_path: "{{ homebrew_prefix }}{{ '/Homebrew' if ansible_machine != 'arm64' }}"
+  tasks:
+    - name: Ensuring Homebrew Is Installed (linux)
+      stat:
+          path: /home/linuxbrew/.linuxbrew/bin
+      register: homebrew_check
+      when: not ansible_distribution == 'MacOS'
+
+    - name: Ensuring Homebrew Is Installed (MacOS)
+      stat:
+          path: "{{ homebrew_install_path }}/brew"
+      register: homebrew_check
+      when: ansible_distribution == 'MacOS'
+
+    - name: Install Homebrew
+      shell: NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    - name: Ensure brew is in user path
+      ansible.builtin.lineinfile:
+        path: ~/.zshrc
+        regexp: '^eval "$(/opt/homebrew/bin/brew shellenv)"'
+        line: 'eval "$(/opt/homebrew/bin/brew shellenv)"'
+
+- name: Install recommended build-essential as root
+  hosts: remotehosts
+  become: yes
+  tasks:
+    - name: Install build-essential
+      ansible.builtin.apt:
+        name: build-essential
+        state: present
+      when: ansible_distribution == 'Debian' or ansible_distribution == 'Ubuntu'
+
+- name: Set up a new remote Mac for Python developer - part 2
+  hosts: remotehosts
+  tasks:
+    - name: Install gcc, Python, Ansible and python-packaging using brew
+      command: /bin/bash -c "/opt/homebrew/bin/brew install gcc python@3.8 python-packaging ansible"
+
+- name: Set up a new Mac local or remote for Python developer
+  hosts: all
+  tasks:
+    - name: Install Docker Desktop # Docker desktop is not available on Linux
+      command: /bin/bash -c "/opt/homebrew/bin/brew install --cask docker"
+      args:
+        creates: /Applications/Docker.app
+      when: ansible_distribution == 'MacOS'
+
+    - name: Ensure Python3.8 is in user's PATH
+      ansible.builtin.lineinfile:
+        path: ~/.zshrc
+        regexp: '^export PATH="/opt/homebrew/bin/python3.8:$PATH"'
+        line: export PATH="/opt/homebrew/bin/python3.8:$PATH"
+
+    - name: Ensure Python3.8 alias exists
+      ansible.builtin.lineinfile:
+        path: ~/.zshrc
+        regexp: '^alias python=/opt/homebrew/bin/python3.8'
+        line: alias python=/opt/homebrew/bin/python3.8
+
+    - name: Ensure Pip3.8 alias exists
+      ansible.builtin.lineinfile:
+        path: ~/.zshrc
+        regexp: '^alias pip=/usr/local/opt/python@3.8/bin/pip3'
+        line: alias pip=/usr/local/opt/python@3.8/bin/pip3
+
+    - name: Install Python developer packages
+      pip:
+        name:
+          - black
+          - flake8
+          - pylint
+          - sphinx
+          - pytest
+          - virtualenv
+        state: latest
+        executable: /opt/homebrew/bin/pip3.8
+
+    - name: Install common developer tools
+      command: /bin/bash -c "/opt/homebrew/bin/brew install git wget tree htop tmux"

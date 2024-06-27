@@ -1,77 +1,34 @@
 ---
-- name: Set up a new remote Mac for Python developer
-  hosts: remotehosts
-  tasks:
-    - name: Ensure XCode is installed
-      shell: xcode-select --install && sudo xcodebuild -license
-      args:
-        creates: /Applications/Xcode.app
-
-    - name: Ensure Homebrew is installed
-      shell: |
-        /bin/bash -c "$(NONINTERACTIVE=1 curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      args:
-        creates: /opt/homebrew/bin/brew
-
-    - name: Update Homebrew
-      command: brew update
-
-    - name: Install Python 3.8
-      command: brew install python@3.8
-
-    - name: Install Python Packaging
-      command: brew install python-packaging
-
-    - name: Install Ansible
-      command: brew install ansible
-      when: ansible_facts.packages.ansible is not defined
-
-- name: Set up a new Mac locally for Python developer
+- name: Set up a new remote or local Mac for Python developer
   hosts: all
   vars:
+    homebrew_prefix: "{{ (ansible_machine == 'arm64') | ternary('/opt/homebrew', '/usr/local') }}"
+    homebrew_install_path: "{{ homebrew_prefix }}{{ '/Homebrew' if ansible_machine != 'arm64' }}"
     homebrew_installed_packages:
-      - wget  # File downloading from web
-      - tree  # Displays directory path as tree
-      - htop  # User friendly alternative to 'top'
+      - python@3.8
+      - python-packaging  # Required for Ansible
+      - gcc               # GNU compiler collection
+      - ansible
+      - wget              # File downloading from web
+      - tree              # Displays directory path as tree
+      - htop              # User friendly alternative to 'top'
     homebrew_cask_apps:
       - docker
       - iterm2
       - visual-studio-code
+    homebrew_cask_accept_external_apps: true
   roles:
     - geerlingguy.mac.homebrew
+
   tasks:
-
-    - name: Ensure pip is installed and up to date
-      shell: |
-        python3.8 -m pip install --upgrade pip
-
-    - name: Ensure Python3.8 is in user's PATH
-      ansible.builtin.lineinfile:
-        path: ~/.zshrc
-        regexp: '^export PATH="/opt/homebrew/bin/python3.8:$PATH"'
-        line: export PATH="/opt/homebrew/bin/python3.8:$PATH"
-
-    - name: Ensure Python3.8 alias exists
-      ansible.builtin.lineinfile:
-        path: ~/.zshrc
-        regexp: '^alias python=/opt/homebrew/bin/python3.8'
-        line: alias python=/opt/homebrew/bin/python3.8
-
-    - name: Ensure Pip3.8 alias exists
-      ansible.builtin.lineinfile:
-        path: ~/.zshrc
-        regexp: '^alias pip=/opt/homebrew/bin/pip3.8'
-        line: alias pip=/opt/homebrew/bin/pip3.8
-
     - name: Install Python developer packages
       pip:
         name:
-          - black      # Code formatter
-          - flake8     # Code styling
-          - pylint     # Static code linter
-          - sphinx     # Document Generation
-          - pytest     # Test Framework
-          - virtualenv # Virtual Environments
+          - black       # Code formatter
+          - flake8      # Linting tool
+          - pylint      # Code analysis
+          - sphinx      # Documentation generator
+          - pytest      # Testing framework
+          - virtualenv  # Virtual environments
         state: latest
-        executable: pip3.8
-
+        executable: /opt/homebrew/bin/pip3.8
